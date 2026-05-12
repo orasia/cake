@@ -1,0 +1,1166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Magic Taste — Order your cake</title>
+<link rel="stylesheet" href="colors_and_type.css"/>
+<style>
+  html, body { margin: 0; background: var(--canvas-050); color: var(--fg); }
+  body { font-family: var(--font-sans); }
+
+  /* === LAYOUT ============================================================ */
+  .shell {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    min-height: 100vh;
+  }
+  /* Left column scrolls; right column is sticky stage */
+  .stage-col {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    background:
+      radial-gradient(ellipse at 50% 40%, #FBF7EE 0%, #F2EADB 70%, #E8DECC 100%);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .steps-col {
+    min-width: 0;
+  }
+
+  /* === NAV =============================================================== */
+  .top-nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 30;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 36px;
+    background: rgba(252,250,246,0.82);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+  }
+  .top-nav .brand {
+    font-family: var(--font-display); font-size: 22px; font-weight: 400;
+    letter-spacing: -0.02em; color: var(--fg);
+    font-variation-settings: 'opsz' 96;
+    text-decoration: none;
+  }
+  .top-nav .brand em {
+    font-style: italic; color: var(--pop-500); font-weight: 300;
+    font-variation-settings: "'opsz' 144, 'SOFT' 50";
+  }
+  .top-nav .crumb {
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--fg-muted);
+  }
+  .top-nav .right { display: flex; align-items: center; gap: 18px; }
+  .price-pill {
+    display: inline-flex; align-items: baseline; gap: 8px;
+    padding: 8px 16px; border-radius: 999px;
+    background: var(--canvas-000); border: 1px solid var(--border-strong);
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--fg-muted);
+  }
+  .price-pill .amt {
+    font-family: var(--font-display); font-style: normal; font-weight: 300;
+    font-size: 20px; letter-spacing: -0.01em; color: var(--pop-500);
+    font-variation-settings: 'opsz' 96;
+    transition: color 200ms ease;
+  }
+
+  /* === STAGE ============================================================= */
+  .stage-inner {
+    flex: 1;
+    display: flex; align-items: center; justify-content: center;
+    padding: 100px 40px 60px;
+    position: relative;
+  }
+  .stage-meta {
+    position: absolute; top: 92px; left: 40px;
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--fg-subtle);
+  }
+  .stage-meta-right {
+    position: absolute; top: 92px; right: 40px;
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--fg-subtle);
+  }
+  .step-tracker {
+    position: absolute; bottom: 36px; left: 40px; right: 40px;
+    display: flex; gap: 8px; align-items: center;
+  }
+  .step-tracker .seg {
+    flex: 1; height: 2px; background: var(--ink-200); border-radius: 2px;
+    overflow: hidden; position: relative;
+  }
+  .step-tracker .seg .fill {
+    position: absolute; inset: 0;
+    background: var(--ink-900);
+    transform-origin: left;
+    transform: scaleX(0);
+    transition: transform 600ms var(--ease-soft);
+  }
+  .step-tracker .seg.done .fill { transform: scaleX(1); }
+  .step-tracker .seg.active .fill { transform: scaleX(0.55); background: var(--pop-500); }
+  .step-tracker .label {
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--fg-muted); white-space: nowrap;
+    margin-left: 8px;
+  }
+
+  /* Cake stage area */
+  .stage-cake {
+    width: 100%; max-width: 460px; aspect-ratio: 1/1;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  /* Selected-wrap chip — shown in the stage when a pattern is picked */
+  .stage-wrap-chip {
+    position: absolute; left: 50%; bottom: 86px;
+    transform: translateX(-50%);
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 8px 14px 8px 8px; border-radius: 999px;
+    background: var(--canvas-000); border: 1px solid var(--border-strong);
+    box-shadow: var(--shadow-sm);
+    max-width: calc(100% - 80px);
+    white-space: nowrap;
+  }
+  .stage-wrap-chip__sw {
+    width: 28px; height: 28px; border-radius: 999px;
+    background-size: cover; background-position: center;
+    box-shadow: inset 0 0 0 1px var(--border);
+    flex-shrink: 0;
+  }
+  .stage-wrap-chip__nm {
+    font-family: var(--font-display); font-weight: 400; font-size: 15px;
+    letter-spacing: -0.01em; color: var(--fg);
+    font-variation-settings: 'opsz' 96;
+  }
+  .stage-wrap-chip__pr {
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--fg-subtle);
+  }
+
+  /* === STEP SECTIONS ===================================================== */
+  .step {
+    min-height: 100vh;
+    padding: 120px 64px 80px;
+    display: flex; flex-direction: column; justify-content: center;
+    border-bottom: 1px solid var(--border);
+    scroll-snap-align: start;
+  }
+  .step:last-child { border-bottom: 0; }
+
+  .step .num {
+    font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--fg-muted);
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 16px;
+  }
+  .step .num .dot {
+    width: 6px; height: 6px; border-radius: 50%; background: var(--pop-500);
+  }
+  .step h2 {
+    font-family: var(--font-display); font-weight: 300;
+    font-size: clamp(2.25rem, 4vw, 3.25rem);
+    line-height: 1.05; letter-spacing: -0.025em;
+    margin: 0 0 14px;
+    font-variation-settings: 'opsz' 144;
+    max-width: 16ch;
+  }
+  .step h2 em {
+    font-style: italic; color: var(--pop-500); font-weight: 300;
+    font-variation-settings: "'opsz' 144, 'SOFT' 50";
+  }
+  .step .lede {
+    font-size: 15px; color: var(--fg-muted); line-height: 1.6;
+    max-width: 44ch; margin: 0 0 36px;
+  }
+
+  /* SHAPE CHOICE */
+  .shapes {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+    max-width: 540px;
+  }
+  .shape-card {
+    border: 1px solid var(--border-strong); background: var(--canvas-000);
+    border-radius: 14px; padding: 28px 24px;
+    text-align: left; cursor: pointer;
+    transition: all 240ms var(--ease-out);
+    display: flex; flex-direction: column; gap: 14px;
+    font-family: inherit; color: inherit;
+  }
+  .shape-card:hover { border-color: var(--ink-400); box-shadow: var(--shadow-sm); }
+  .shape-card.on {
+    border-color: var(--ink-900);
+    background: var(--ink-900); color: var(--canvas-050);
+    box-shadow: var(--shadow-md);
+  }
+  .shape-card .pic {
+    height: 110px; display: flex; align-items: center; justify-content: center;
+  }
+  .shape-card svg { stroke: currentColor; fill: none; stroke-width: 1.25; }
+  .shape-card .label {
+    font-family: var(--font-display); font-weight: 400;
+    font-size: 22px; letter-spacing: -0.01em;
+    font-variation-settings: 'opsz' 96;
+  }
+  .shape-card .sub {
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--fg-muted);
+  }
+  .shape-card.on .sub { color: rgba(252,250,246,0.65); }
+
+  /* SIZE CHOICE */
+  .sizes {
+    display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px;
+    max-width: 640px;
+  }
+  .size-card {
+    border: 1px solid var(--border-strong); background: var(--canvas-000);
+    border-radius: 10px; padding: 16px 4px 14px;
+    cursor: pointer; transition: all 200ms var(--ease-out);
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    font-family: inherit; color: inherit;
+  }
+  .size-card:hover { border-color: var(--ink-400); transform: translateY(-2px); }
+  .size-card.on {
+    border-color: var(--ink-900); background: var(--ink-900); color: var(--canvas-050);
+  }
+  .size-card .num {
+    font-family: var(--font-display); font-weight: 300; font-size: 28px;
+    line-height: 1; font-variation-settings: 'opsz' 144;
+  }
+  .size-card .unit {
+    font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--fg-muted);
+  }
+  .size-card .serves {
+    font-size: 10px; color: var(--fg-subtle); margin-top: 4px; text-align: center;
+  }
+  .size-card.on .unit, .size-card.on .serves { color: rgba(252,250,246,0.65); }
+
+  /* COLOR CHOICE */
+  .palette { max-width: 620px; }
+  .palette-row { margin-bottom: 28px; }
+  .palette-row:last-child { margin-bottom: 0; }
+  .palette-name {
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--fg-subtle); margin-bottom: 14px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .palette-name::after {
+    content: ''; flex: 1; height: 1px; background: var(--border);
+  }
+  .colors {
+    display: grid; grid-template-columns: repeat(6, 1fr); gap: 18px;
+    max-width: 520px;
+  }
+  .color-card {
+    background: none; border: 0; padding: 0; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    font-family: inherit;
+  }
+  .color-card .swatch {
+    width: 58px; height: 58px; border-radius: 999px;
+    border: 3px solid transparent;
+    transition: transform 200ms var(--ease-out), border-color 200ms var(--ease-out);
+    box-shadow: 0 2px 8px rgba(26,18,11,0.10);
+  }
+  .color-card:hover .swatch { transform: scale(1.05); }
+  .color-card.on .swatch {
+    border-color: var(--ink-900);
+    transform: scale(1.08);
+  }
+  .color-card .nm {
+    font-size: 11px; color: var(--fg-muted);
+    font-family: var(--font-mono); letter-spacing: 0.08em;
+    text-transform: uppercase;
+    transition: color 200ms ease;
+  }
+  .color-card.on .nm { color: var(--pop-500); }
+
+  /* MESSAGE CHOICE */
+  .msg-options {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+    max-width: 620px;
+  }
+  .msg-card {
+    border: 1px solid var(--border-strong); background: var(--canvas-000);
+    border-radius: 14px; padding: 22px 24px; cursor: pointer;
+    transition: all 220ms var(--ease-out);
+    display: flex; flex-direction: column; gap: 10px;
+    text-align: left; font-family: inherit; color: inherit;
+  }
+  .msg-card:hover { border-color: var(--ink-400); }
+  .msg-card.on { border-color: var(--ink-900); background: var(--ink-900); color: var(--canvas-050); }
+  .msg-card .ttl {
+    font-family: var(--font-display); font-weight: 400; font-size: 22px;
+    letter-spacing: -0.01em;
+    font-variation-settings: 'opsz' 96;
+  }
+  .msg-card .ttl em {
+    font-style: italic; color: var(--pop-500);
+    font-variation-settings: "'opsz' 144, 'SOFT' 50";
+  }
+  .msg-card.on .ttl em { color: var(--pop-400); }
+  .msg-card .sub { font-size: 13px; color: var(--fg-muted); line-height: 1.5; }
+  .msg-card.on .sub { color: rgba(252,250,246,0.7); }
+  .msg-card .pricetag {
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--fg-subtle);
+    margin-top: 6px;
+  }
+  .msg-card.on .pricetag { color: rgba(252,250,246,0.55); }
+
+  /* WRAP PATTERN CHOICE */
+  .wrap-options {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px;
+    max-width: 720px;
+  }
+  @media (max-width: 720px) { .wrap-options { grid-template-columns: 1fr; } }
+  .wrap-card {
+    display: grid; grid-template-columns: 64px 1fr auto; align-items: center;
+    gap: 14px;
+    border: 1px solid var(--border-strong); background: var(--canvas-000);
+    border-radius: 14px; padding: 12px 16px 12px 12px; cursor: pointer;
+    transition: border-color 220ms ease, background 220ms ease, color 220ms ease;
+    text-align: left; font-family: inherit; color: inherit;
+  }
+  .wrap-card:hover { border-color: var(--ink-400); }
+  .wrap-card.on { border-color: var(--ink-900); background: var(--ink-900); color: var(--canvas-050); }
+  .wrap-card .swatch {
+    width: 64px; height: 64px; border-radius: 10px; overflow: hidden;
+    background: var(--canvas-100);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: inset 0 0 0 1px var(--border);
+  }
+  .wrap-card .swatch img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .wrap-card .swatch .none-mark {
+    font-family: var(--font-display); font-size: 28px; color: var(--fg-subtle); font-weight: 300;
+  }
+  .wrap-card .wrap-meta { min-width: 0; }
+  .wrap-card .nm {
+    font-family: var(--font-display); font-weight: 400; font-size: 19px;
+    letter-spacing: -0.01em; line-height: 1.15; margin-bottom: 3px;
+    font-variation-settings: 'opsz' 96;
+  }
+  .wrap-card .sub { font-size: 12px; color: var(--fg-muted); line-height: 1.4; }
+  .wrap-card.on .sub { color: rgba(252,250,246,0.7); }
+  .wrap-card .pricetag {
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--fg-subtle); white-space: nowrap;
+  }
+  .wrap-card.on .pricetag { color: rgba(252,250,246,0.6); }
+
+  .msg-card--disabled {
+    opacity: 0.4; pointer-events: none; filter: grayscale(0.4);
+  }
+
+  /* Script (font) picker */
+  .msg-fonts {
+    margin-top: 28px; max-width: 620px;
+    display: flex; flex-direction: column; gap: 12px;
+    transition: opacity 300ms ease;
+  }
+  .msg-fonts.disabled { opacity: 0.35; pointer-events: none; }
+  .msg-fonts__label {
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--fg-muted);
+  }
+  .msg-fonts__grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+  }
+  @media (max-width: 720px) { .msg-fonts__grid { grid-template-columns: 1fr; } }
+  .msg-font-card {
+    background: var(--canvas-000);
+    border: 1px solid var(--border-strong);
+    border-radius: 12px;
+    padding: 16px 14px;
+    cursor: pointer; transition: border-color 200ms ease, background 200ms ease, color 200ms ease;
+    display: flex; flex-direction: column; gap: 6px;
+    font-family: inherit; color: inherit; text-align: left;
+  }
+  .msg-font-card:hover { border-color: var(--ink-400); }
+  .msg-font-card.on { border-color: var(--ink-900); background: var(--ink-900); color: var(--canvas-050); }
+  .msg-font-card__sample {
+    font-size: 26px; line-height: 1; color: var(--pop-500);
+    padding: 6px 0;
+  }
+  .msg-font-card.on .msg-font-card__sample { color: var(--pop-400); }
+  .msg-font-card__nm {
+    font-family: var(--font-display); font-weight: 400; font-size: 14px;
+    letter-spacing: -0.01em;
+  }
+  .msg-font-card__sub {
+    font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--fg-subtle);
+  }
+  .msg-font-card.on .msg-font-card__sub { color: rgba(252,250,246,0.6); }
+
+  .msg-input-wrap {
+    margin-top: 24px; max-width: 620px;
+    display: flex; flex-direction: column; gap: 8px;
+    transition: opacity 300ms ease;
+  }
+  .msg-input-wrap.disabled { opacity: 0.35; pointer-events: none; }
+  .msg-input-wrap label {
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--fg-muted);
+  }
+  .msg-input {
+    width: 100%; padding: 16px 18px;
+    background: var(--canvas-000); border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    font-family: var(--font-display); font-style: italic; font-weight: 300;
+    font-size: 22px; letter-spacing: -0.01em; color: var(--fg);
+    font-variation-settings: "'opsz' 144, 'SOFT' 50";
+    outline: none;
+    transition: border-color 200ms ease;
+  }
+  .msg-input:focus { border-color: var(--ink-900); }
+  .msg-input::placeholder { color: var(--ink-300); font-style: italic; }
+  .msg-counter {
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--fg-subtle); align-self: flex-end;
+  }
+
+  /* REVIEW */
+  .review-summary {
+    background: var(--canvas-000); border: 1px solid var(--border);
+    border-radius: 18px; padding: 32px 36px;
+    max-width: 580px;
+    box-shadow: var(--shadow-sm);
+  }
+  .review-row {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: 14px 0; border-bottom: 1px solid var(--border);
+  }
+  .review-row:last-of-type { border-bottom: 0; }
+  .review-row .k {
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--fg-muted);
+  }
+  .review-row .v {
+    font-family: var(--font-display); font-style: italic; font-weight: 300;
+    font-size: 20px; letter-spacing: -0.01em;
+    font-variation-settings: "'opsz' 144, 'SOFT' 50";
+  }
+  .total-row { padding: 22px 0 6px; border-top: 1px solid var(--ink-200); margin-top: 8px; }
+  .total-row .v {
+    font-family: var(--font-display); font-style: normal; font-weight: 300;
+    font-size: 44px; color: var(--pop-500);
+    font-variation-settings: 'opsz' 144;
+  }
+  .reserve-btn {
+    margin-top: 24px; width: 100%;
+    display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+    background: var(--pop-500); color: #fff; border: 0;
+    padding: 20px 28px; border-radius: 999px;
+    font-family: var(--font-sans); font-size: 14px; font-weight: 500;
+    letter-spacing: 0.01em; cursor: pointer;
+    transition: background 200ms ease;
+  }
+  .reserve-btn:hover { background: var(--pop-600); }
+
+  /* Continue button — appears after each step is satisfied */
+  .continue {
+    margin-top: 32px;
+    align-self: flex-start;
+    display: inline-flex; align-items: center; gap: 10px;
+    background: var(--ink-900); color: var(--canvas-050);
+    border: 0; padding: 14px 22px; border-radius: 999px;
+    font-family: var(--font-sans); font-size: 13px; font-weight: 500;
+    letter-spacing: 0.01em; cursor: pointer;
+    transition: background 200ms ease, transform 200ms ease, opacity 300ms ease;
+  }
+  .continue:hover { background: var(--ink-700); }
+  .continue.hidden { opacity: 0; pointer-events: none; transform: translateY(8px); }
+
+  /* Step inner content fades up when section is in focus */
+  .step-content {
+    opacity: 0.35;
+    transform: translateY(20px);
+    transition: opacity 700ms var(--ease-soft), transform 700ms var(--ease-soft);
+  }
+  .step.active .step-content {
+    opacity: 1; transform: translateY(0);
+  }
+
+  /* HERO */
+  .hero {
+    min-height: 100vh;
+    padding: 140px 64px 60px;
+    display: flex; flex-direction: column; justify-content: center;
+    border-bottom: 1px solid var(--border);
+  }
+  .hero .eyebrow {
+    font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.20em;
+    text-transform: uppercase; color: var(--fg-muted); margin-bottom: 24px;
+  }
+  .hero h1 {
+    font-family: var(--font-display); font-weight: 300;
+    font-size: clamp(3rem, 6vw, 5.25rem); line-height: 1.0;
+    letter-spacing: -0.03em; margin: 0 0 20px;
+    font-variation-settings: 'opsz' 144;
+    max-width: 12ch;
+  }
+  .hero h1 em {
+    font-style: italic; color: var(--pop-500); font-weight: 300;
+    font-variation-settings: "'opsz' 144, 'SOFT' 50";
+  }
+  .hero p { font-size: 16px; color: var(--fg-muted); line-height: 1.6; max-width: 44ch; margin: 0 0 36px; }
+  .hero .start {
+    align-self: flex-start;
+    display: inline-flex; align-items: center; gap: 10px;
+    background: var(--ink-900); color: var(--canvas-050);
+    border: 0; padding: 18px 28px; border-radius: 999px;
+    font-family: var(--font-sans); font-size: 14px; font-weight: 500;
+    cursor: pointer;
+    transition: background 200ms ease;
+  }
+  .hero .start:hover { background: var(--pop-500); }
+  .hero .scroll-hint {
+    margin-top: 56px; display: flex; align-items: center; gap: 12px;
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--fg-subtle);
+  }
+  .hero .scroll-hint .line {
+    width: 60px; height: 1px; background: var(--ink-300);
+  }
+
+  /* responsive */
+  @media (max-width: 1000px) {
+    /* Single column flow, stage at the top sticky under the nav */
+    .shell { grid-template-columns: 1fr; }
+    .stage-col {
+      order: -1;
+      position: sticky; top: 56px;
+      height: 36vh; min-height: 240px; max-height: 360px;
+      border-right: 0; border-bottom: 1px solid var(--border);
+      z-index: 20;
+      box-shadow: 0 6px 16px -8px rgba(26,18,11,0.12);
+      background:
+        radial-gradient(ellipse at 50% 40%, #FBF7EE 0%, #F2EADB 70%, #E8DECC 100%);
+    }
+    .steps-col { order: 0; }
+    .stage-inner { padding: 36px 12px 28px; }
+    .stage-cake  { max-width: 240px; }
+    .stage-meta, .stage-meta-right { top: 10px; font-size: 9px; }
+    .stage-meta      { left: 12px; }
+    .stage-meta-right{ right: 12px; }
+    .step-tracker { bottom: 8px; left: 14px; right: 14px; }
+
+    .step { padding: 56px 22px 56px; min-height: auto; }
+    .hero { padding: 80px 22px 60px; min-height: 70vh; }
+
+    .sizes  { grid-template-columns: repeat(4, 1fr); gap: 6px; }
+    .colors { grid-template-columns: repeat(4, 1fr); gap: 14px; }
+    .shapes { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .wrap-options { grid-template-columns: 1fr; }
+    .msg-options  { grid-template-columns: 1fr; }
+    .msg-fonts__grid { grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+
+    /* Top nav: drop the long crumb on mobile, keep brand + price */
+    .top-nav { padding: 12px 18px; }
+    .top-nav .crumb { display: none; }
+    .top-nav .brand { font-size: 19px; }
+    .price-pill { padding: 6px 12px; font-size: 9px; }
+    .price-pill .amt { font-size: 17px; }
+
+    .step h2 { font-size: clamp(1.85rem, 7vw, 2.5rem); }
+    .step .lede { font-size: 14px; }
+
+    /* Bigger touch targets on cards */
+    .shape-card, .size-card, .color-card .swatch,
+    .msg-card, .wrap-card, .msg-font-card {
+      min-height: 56px;
+    }
+    .size-card .num { font-size: 22px; }
+    .color-card .swatch { width: 52px; height: 52px; }
+
+    /* Continue + reserve buttons span the line on mobile */
+    .continue, .reserve-btn { width: 100%; justify-content: center; }
+  }
+
+  /* Very narrow phones */
+  @media (max-width: 380px) {
+    .sizes  { grid-template-columns: repeat(3, 1fr); }
+    .colors { grid-template-columns: repeat(3, 1fr); }
+  }
+
+  /* iOS form-input zoom prevention: inputs <16px font cause Safari to
+     auto-zoom on focus. Keep msg-input at 16px+. */
+  @media (max-width: 1000px) {
+    .msg-input { font-size: 18px; }
+  }
+</style>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/three@0.146.0/build/three.min.js"></script>
+<script src="https://unpkg.com/three@0.146.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://unpkg.com/three@0.146.0/examples/js/environments/RoomEnvironment.js"></script>
+<script type="text/babel" src="cake-preview.jsx?v=mobile-8"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const SIZES = [
+  { inch: 3, serves: '2–4',   price: 70  },
+  { inch: 4, serves: '4–6',   price: 95  },
+  { inch: 5, serves: '6–8',   price: 130 },
+  { inch: 6, serves: '8–10',  price: 165 },
+  { inch: 7, serves: '10–15', price: 210 },
+  { inch: 8, serves: '15–20', price: 260 },
+  { inch: 9, serves: '20–25', price: 320 },
+];
+
+const PASTELS = [
+  { id: 'ivory',   name: 'Ivory',   hex: '#EFE7D5' },
+  { id: 'butter',  name: 'Butter',  hex: '#F1D778' },
+  { id: 'blush',   name: 'Blush',   hex: '#F2B0A0' },
+  { id: 'peach',   name: 'Peach',   hex: '#E89A82' },
+  { id: 'lilac',   name: 'Lilac',   hex: '#B7A1D7' },
+  { id: 'sage',    name: 'Sage',    hex: '#9AB48F' },
+];
+const DEEPS = [
+  { id: 'rose',  name: 'Dusty rose', hex: '#B7717A' },
+  { id: 'sky',   name: 'Sky',        hex: '#6F9AC0' },
+  { id: 'navy',  name: 'Navy',       hex: '#283246' },
+  { id: 'noir',  name: 'Noir',       hex: '#1A140F' },
+];
+const ALL_COLORS = [...PASTELS, ...DEEPS];
+
+const SHAPE_PREMIUM = { round: 0, square: 15 };
+const MESSAGE_PREMIUMS = {
+  none:   { id: 'none',   label: 'No message',     sub: 'A quiet, simple finish — just the cake.',                       price: 0  },
+  top:    { id: 'top',    label: 'On top',          sub: 'Hand-piped across the top of the cake.',                        price: 12 },
+  around: { id: 'around', label: 'Around the cake', sub: 'A continuous script piped around the side (no wrap pattern).',  price: 28 },
+};
+const MESSAGE_FONTS = [
+  { id: 'allison',  label: 'Allison',  sub: 'Soft icing script', family: '"Allison", "Caveat", cursive' },
+  { id: 'caveat',   label: 'Caveat',   sub: 'Casual handwriting', family: '"Caveat", cursive' },
+  { id: 'fraunces', label: 'Fraunces', sub: 'Classic italic',     family: '"Fraunces", serif' },
+];
+
+const WRAP_PATTERNS = [
+  { id: null,            name: 'None',           sub: 'Just the cake.',                  price: 0  },
+  { id: 'mediterranean', name: 'Mediterranean',  sub: 'Portuguese tile · lemon blue.',   price: 28 },
+  { id: 'floral',        name: 'Floral',         sub: 'Hand-illustrated rose garden.',   price: 24 },
+  { id: 'polka',         name: 'Polka',          sub: 'Confetti dots · primary palette.',price: 18 },
+  { id: 'stripes',       name: 'Sorbet stripes', sub: 'Vertical pastel ribbon.',         price: 18 },
+  { id: 'confetti',      name: 'Confetti',       sub: 'Tossed paper · party piece.',     price: 18 },
+  { id: 'gold-leaf',     name: 'Gold leaf',      sub: 'Brass flecks on noir — luxe.',    price: 32 },
+];
+
+// === Step IDs ============================================================
+const STEPS = [
+  { id: 'shape',   label: 'Shape' },
+  { id: 'size',    label: 'Size' },
+  { id: 'colour',  label: 'Colour' },
+  { id: 'wrap',    label: 'Wrap' },
+  { id: 'message', label: 'Message' },
+  { id: 'review',  label: 'Review' },
+];
+
+const Arrow = ({ size = 14 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M5 12h14M13 6l6 6-6 6"/>
+  </svg>
+);
+
+const ArrowDown = ({ size = 14 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 5v14M6 13l6 6 6-6"/>
+  </svg>
+);
+
+const App = () => {
+  const [shape, setShape]       = React.useState(null);   // 'round' | 'square'
+  const [sizeIdx, setSizeIdx]   = React.useState(null);   // index into SIZES
+  const [colorId, setColorId]   = React.useState(null);
+  const [wrapId, setWrapId]     = React.useState(undefined); // null = none, undefined = unset
+  const [msgKind, setMsgKind]   = React.useState(null);   // 'none' | 'top' | 'around'
+  const [msgText, setMsgText]   = React.useState('');
+  const [msgFontId, setMsgFontId] = React.useState('allison');
+  const [activeStep, setActiveStep] = React.useState(-1); // -1 = hero
+
+  const stepRefs = React.useRef({});
+
+  const size  = sizeIdx != null ? SIZES[sizeIdx] : null;
+  const color = colorId ? ALL_COLORS.find(c => c.id === colorId) : null;
+  const msg   = msgKind ? MESSAGE_PREMIUMS[msgKind] : null;
+  const wrap  = wrapId !== undefined ? WRAP_PATTERNS.find(w => w.id === wrapId) : null;
+
+  // === PRICING ============================================================
+  const subtotal =
+    (size ? size.price : 0) +
+    (shape ? SHAPE_PREMIUM[shape] : 0) +
+    (wrap ? wrap.price : 0) +
+    (msg ? msg.price : 0);
+
+  // Display the running total even before all picks
+  const displayPrice = subtotal;
+
+  // === Smooth scroll to next step on selection =============================
+  const scrollToStep = (id) => {
+    const el = stepRefs.current[id];
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  // After a small delay, advance to next step (so user sees their pick first)
+  const advanceTo = (id, delay = 700) => {
+    setTimeout(() => scrollToStep(id), delay);
+  };
+
+  // === IntersectionObserver to mark active step =============================
+  React.useEffect(() => {
+    const sections = ['hero', ...STEPS.map(s => s.id)].map(id => stepRefs.current[id]).filter(Boolean);
+
+    const obs = new IntersectionObserver((entries) => {
+      // pick the entry most centered
+      let best = null;
+      let bestRatio = 0;
+      entries.forEach(e => {
+        if (e.isIntersecting && e.intersectionRatio > bestRatio) {
+          best = e.target;
+          bestRatio = e.intersectionRatio;
+        }
+      });
+      if (best) {
+        const id = best.dataset.stepId;
+        if (id === 'hero') setActiveStep(-1);
+        else setActiveStep(STEPS.findIndex(s => s.id === id));
+      }
+    }, { threshold: [0.4, 0.6, 0.8] });
+
+    sections.forEach(s => obs.observe(s));
+    return () => obs.disconnect();
+  }, []);
+
+  // === Handlers ===========================================================
+  // No auto-advance — user clicks the Continue button or scrolls to move on.
+  const onShape = (s) => setShape(s);
+  const onSize  = (i) => setSizeIdx(i);
+  const onColor = (id) => setColorId(id);
+  const onWrap  = (id) => {
+    setWrapId(id);
+    // "Around the cake" message conflicts with a side wrap — clear it.
+    if (id && msgKind === 'around') setMsgKind('top');
+  };
+  const onMsg   = (id) => setMsgKind(id);
+
+  // === Preview values for the cake stage ===================================
+  const previewShape = shape || 'round';
+  const previewInch  = size ? size.inch : 6;
+  const previewColor = color || PASTELS[1]; // blush as default canvas
+  const previewHasMsg = msgKind && msgKind !== 'none' && msgText.trim().length > 0;
+  const previewMsg = msgText;
+  const previewMsgMode = msgKind || 'top';
+  const previewMsgFont = MESSAGE_FONTS.find(f => f.id === msgFontId) || MESSAGE_FONTS[0];
+  const previewPattern = wrapId || null;
+  const aroundDisabled = !!wrapId; // pattern selected → no "around the cake" text
+
+  return (
+    <div>
+      {/* TOP NAV */}
+      <header className="top-nav">
+        <a href="#" className="brand" onClick={(e) => { e.preventDefault(); scrollToStep('hero'); }}>
+          Magic <em>taste.</em>
+        </a>
+        <span className="crumb">
+          {activeStep < 0 ? 'Order · Step 0 / 6' : `Order · Step ${activeStep + 1} / 6 · ${STEPS[activeStep].label}`}
+        </span>
+        <div className="right">
+          <span className="price-pill">
+            Total <span className="amt">${displayPrice}</span>
+          </span>
+        </div>
+      </header>
+
+      <div className="shell">
+        {/* === STEPS COLUMN ============================================== */}
+        <div className="steps-col">
+
+          {/* HERO */}
+          <section
+            className="hero"
+            ref={(el) => { stepRefs.current['hero'] = el; }}
+            data-step-id="hero"
+            data-screen-label="00 Hero"
+          >
+            <span className="eyebrow">Cake · Studio · Est. 2025</span>
+            <h1>Order your <em>cake.</em></h1>
+            <p>Five picks — shape, size, colour, wrap, message. The price moves with you. We bake the rest.</p>
+            <button className="start" onClick={() => scrollToStep('shape')}>
+              Start with the shape <Arrow/>
+            </button>
+            <div className="scroll-hint">
+              <span className="line"/>
+              <span>Scroll</span>
+              <ArrowDown size={12}/>
+            </div>
+          </section>
+
+          {/* STEP 1 — SHAPE */}
+          <section
+            className={`step ${activeStep === 0 ? 'active' : ''}`}
+            ref={(el) => { stepRefs.current['shape'] = el; }}
+            data-step-id="shape"
+            data-screen-label="01 Shape"
+          >
+            <div className="step-content">
+              <div className="num"><span className="dot"/>Step 01 — Foundation</div>
+              <h2>Round, or <em>square.</em></h2>
+              <p className="lede">Round cakes have a softer, classic feeling. Square gives you sharper geometry and a touch more surface for piping. Both are 4 inches tall.</p>
+
+              <div className="shapes">
+                <button className={`shape-card ${shape === 'round' ? 'on' : ''}`} onClick={() => onShape('round')}>
+                  <div className="pic">
+                    <svg viewBox="0 0 120 100" width="100" height="84">
+                      <ellipse cx="60" cy="22" rx="34" ry="8"/>
+                      <path d="M26 22 L26 78 A34 8 0 0 0 94 78 L94 22"/>
+                      <ellipse cx="60" cy="78" rx="34" ry="8" stroke="currentColor" strokeOpacity="0.4"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <div className="label">Round <em style={{ fontStyle: 'italic', color: 'var(--pop-500)', fontWeight: 300 }}>(cylinder)</em></div>
+                    <div className="sub">Classic · soft profile</div>
+                  </div>
+                </button>
+
+                <button className={`shape-card ${shape === 'square' ? 'on' : ''}`} onClick={() => onShape('square')}>
+                  <div className="pic">
+                    <svg viewBox="0 0 120 100" width="100" height="84">
+                      <path d="M28 30 L88 30 L100 18 L40 18 Z"/>
+                      <path d="M28 30 L28 82 L88 82 L88 30"/>
+                      <path d="M88 30 L100 18 L100 70 L88 82"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <div className="label">Square <em style={{ fontStyle: 'italic', color: 'var(--pop-500)', fontWeight: 300 }}>(cube)</em></div>
+                    <div className="sub">Modern · sharp lines · +$15</div>
+                  </div>
+                </button>
+              </div>
+
+              <button className={`continue ${shape ? '' : 'hidden'}`} onClick={() => scrollToStep('size')}>
+                Continue to size <Arrow/>
+              </button>
+            </div>
+          </section>
+
+          {/* STEP 2 — SIZE */}
+          <section
+            className={`step ${activeStep === 1 ? 'active' : ''}`}
+            ref={(el) => { stepRefs.current['size'] = el; }}
+            data-step-id="size"
+            data-screen-label="02 Size"
+          >
+            <div className="step-content">
+              <div className="num"><span className="dot"/>Step 02 — Size</div>
+              <h2>How <em>many</em> guests?</h2>
+              <p className="lede">Pick by the inch — every cake is four layers tall. Servings are generous slices.</p>
+
+              <div className="sizes">
+                {SIZES.map((s, i) => (
+                  <button
+                    key={s.inch}
+                    className={`size-card ${i === sizeIdx ? 'on' : ''}`}
+                    onClick={() => onSize(i)}
+                  >
+                    <span className="num">{s.inch}″</span>
+                    <span className="unit">inch</span>
+                    <span className="serves">serves<br/>{s.serves}</span>
+                  </button>
+                ))}
+              </div>
+
+              <div style={{ marginTop: 24, display: 'flex', alignItems: 'baseline', gap: 16 }}>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--fg-muted)' }}>
+                  Selected
+                </span>
+                <span style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: 22, fontVariationSettings: "'opsz' 144, 'SOFT' 50" }}>
+                  {size ? `${size.inch}″ · serves ${size.serves} · $${size.price}` : '—'}
+                </span>
+              </div>
+
+              <button className={`continue ${size != null ? '' : 'hidden'}`} onClick={() => scrollToStep('colour')}>
+                Continue to colour <Arrow/>
+              </button>
+            </div>
+          </section>
+
+          {/* STEP 3 — COLOUR */}
+          <section
+            className={`step ${activeStep === 2 ? 'active' : ''}`}
+            ref={(el) => { stepRefs.current['colour'] = el; }}
+            data-step-id="colour"
+            data-screen-label="03 Colour"
+          >
+            <div className="step-content">
+              <div className="num"><span className="dot"/>Step 03 — Colour</div>
+              <h2>Choose a <em>shade.</em></h2>
+              <p className="lede">Pastel sorbets for soft, photographic moments — deep tones for evening, weddings, anything that wants weight.</p>
+
+              <div className="palette">
+                <div className="palette-row">
+                  <div className="palette-name">Pastels — soft, photographic</div>
+                  <div className="colors">
+                    {PASTELS.map(c => (
+                      <button key={c.id} className={`color-card ${c.id === colorId ? 'on' : ''}`} onClick={() => onColor(c.id)}>
+                        <span className="swatch" style={{ background: c.hex }}/>
+                        <span className="nm">{c.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="palette-row">
+                  <div className="palette-name">Deep tones — moody, weighty</div>
+                  <div className="colors">
+                    {DEEPS.map(c => (
+                      <button key={c.id} className={`color-card ${c.id === colorId ? 'on' : ''}`} onClick={() => onColor(c.id)}>
+                        <span className="swatch" style={{ background: c.hex }}/>
+                        <span className="nm">{c.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <button className={`continue ${color ? '' : 'hidden'}`} onClick={() => scrollToStep('wrap')}>
+                Continue to wrap <Arrow/>
+              </button>
+            </div>
+          </section>
+
+          {/* STEP 4 — WRAP PATTERN */}
+          <section
+            className={`step ${activeStep === 3 ? 'active' : ''}`}
+            ref={(el) => { stepRefs.current['wrap'] = el; }}
+            data-step-id="wrap"
+            data-screen-label="04 Wrap"
+          >
+            <div className="step-content">
+              <div className="num"><span className="dot"/>Step 04 — Wrap</div>
+              <h2>Wrap it in <em>a pattern.</em></h2>
+              <p className="lede">Edible icing wraps printed and laid by hand around the side of the cake. Skip it for a clean, classic finish.</p>
+
+              <div className="wrap-options">
+                {WRAP_PATTERNS.map(w => (
+                  <button
+                    key={w.id || 'none'}
+                    className={`wrap-card ${wrapId === w.id ? 'on' : ''}`}
+                    onClick={() => onWrap(w.id)}
+                  >
+                    <div className="swatch">
+                      {w.id ? (
+                        <img src={`assets/patterns/${w.id}.svg`} alt=""/>
+                      ) : (
+                        <div className="none-mark">—</div>
+                      )}
+                    </div>
+                    <div className="wrap-meta">
+                      <div className="nm">{w.name}</div>
+                      <div className="sub">{w.sub}</div>
+                    </div>
+                    <div className="pricetag">{w.price > 0 ? `+ $${w.price}` : 'Included'}</div>
+                  </button>
+                ))}
+              </div>
+
+              <button className={`continue ${wrapId !== undefined ? '' : 'hidden'}`} onClick={() => scrollToStep('message')}>
+                Continue to message <Arrow/>
+              </button>
+            </div>
+          </section>
+
+          {/* STEP 5 — MESSAGE */}
+          <section
+            className={`step ${activeStep === 4 ? 'active' : ''}`}
+            ref={(el) => { stepRefs.current['message'] = el; }}
+            data-step-id="message"
+            data-screen-label="05 Message"
+          >
+            <div className="step-content">
+              <div className="num"><span className="dot"/>Step 05 — Message</div>
+              <h2>A note, <em>or none.</em></h2>
+              <p className="lede">Hand-piped on the cake. Pick a position, a script, and what it should say.</p>
+
+              <div className="msg-options">
+                <button className={`msg-card ${msgKind === 'none' ? 'on' : ''}`} onClick={() => onMsg('none')}>
+                  <div className="ttl">No <em>message.</em></div>
+                  <div className="sub">A quiet, simple finish — just the cake.</div>
+                  <div className="pricetag">Included</div>
+                </button>
+                <button className={`msg-card ${msgKind === 'top' ? 'on' : ''}`} onClick={() => onMsg('top')}>
+                  <div className="ttl">On <em>top.</em></div>
+                  <div className="sub">Hand-piped across the top of the cake. Works with any wrap.</div>
+                  <div className="pricetag">+ $12</div>
+                </button>
+                <button
+                  className={`msg-card ${msgKind === 'around' ? 'on' : ''} ${aroundDisabled ? 'msg-card--disabled' : ''}`}
+                  style={{ gridColumn: '1 / -1' }}
+                  onClick={() => { if (!aroundDisabled) onMsg('around'); }}
+                  disabled={aroundDisabled}
+                  title={aroundDisabled ? 'Not available with a wrap pattern — the side is already decorated.' : ''}
+                >
+                  <div className="ttl">Wrap <em>around the cake.</em></div>
+                  <div className="sub">
+                    {aroundDisabled
+                      ? 'Disabled — your selected wrap already covers the side. Pick "On top" instead, or remove the wrap.'
+                      : 'A continuous script piped around the entire side. Best for short phrases or a name + date.'}
+                  </div>
+                  <div className="pricetag">+ $28</div>
+                </button>
+              </div>
+
+              <div className={`msg-fonts ${msgKind && msgKind !== 'none' ? '' : 'disabled'}`}>
+                <label className="msg-fonts__label">Script</label>
+                <div className="msg-fonts__grid">
+                  {MESSAGE_FONTS.map(f => (
+                    <button
+                      key={f.id}
+                      className={`msg-font-card ${msgFontId === f.id ? 'on' : ''}`}
+                      onClick={() => setMsgFontId(f.id)}
+                    >
+                      <span className="msg-font-card__sample" style={{ fontFamily: f.family }}>Happy birthday</span>
+                      <span className="msg-font-card__nm">{f.label}</span>
+                      <span className="msg-font-card__sub">{f.sub}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className={`msg-input-wrap ${msgKind && msgKind !== 'none' ? '' : 'disabled'}`}>
+                <label>Your message</label>
+                <input
+                  className="msg-input"
+                  type="text"
+                  placeholder={msgKind === 'around' ? 'Anna & Theo · 2026' : 'Happy birthday'}
+                  value={msgText}
+                  onChange={(e) => setMsgText(e.target.value.slice(0, 28))}
+                  maxLength={28}
+                />
+                <span className="msg-counter">{msgText.length} / 28</span>
+              </div>
+
+              <button
+                className={`continue ${msgKind ? '' : 'hidden'}`}
+                onClick={() => scrollToStep('review')}
+              >
+                Continue to review <Arrow/>
+              </button>
+            </div>
+          </section>
+
+          {/* STEP 6 — REVIEW */}
+          <section
+            className={`step ${activeStep === 5 ? 'active' : ''}`}
+            ref={(el) => { stepRefs.current['review'] = el; }}
+            data-step-id="review"
+            data-screen-label="06 Review"
+          >
+            <div className="step-content">
+              <div className="num"><span className="dot"/>Step 06 — Review</div>
+              <h2>Looks <em>perfect.</em></h2>
+              <p className="lede">Final picks below. We'll take it from here — your tasting will be confirmed within a day.</p>
+
+              <div className="review-summary">
+                <div className="review-row">
+                  <span className="k">Shape</span>
+                  <span className="v">{shape ? (shape === 'round' ? 'Round (cylinder)' : 'Square (cube)') : '—'}</span>
+                </div>
+                <div className="review-row">
+                  <span className="k">Size</span>
+                  <span className="v">{size ? `${size.inch}″ · serves ${size.serves}` : '—'}</span>
+                </div>
+                <div className="review-row">
+                  <span className="k">Colour</span>
+                  <span className="v">{color ? color.name : '—'}</span>
+                </div>
+                <div className="review-row">
+                  <span className="k">Wrap</span>
+                  <span className="v">{wrap ? wrap.name : '—'}</span>
+                </div>
+                <div className="review-row">
+                  <span className="k">Message</span>
+                  <span className="v" style={ msgKind && msgKind !== 'none' && msgText ? { fontFamily: previewMsgFont.family } : undefined }>
+                    {msgKind === 'none' ? 'None' :
+                     msgKind && msgText ? `"${msgText}"` :
+                     msgKind ? msg.label :
+                     '—'}
+                  </span>
+                </div>
+                {msgKind && msgKind !== 'none' && (
+                  <div className="review-row">
+                    <span className="k">Script &amp; position</span>
+                    <span className="v" style={{ fontSize: 16 }}>
+                      {previewMsgFont.label} · {msgKind === 'top' ? 'On top' : 'Around the cake'}
+                    </span>
+                  </div>
+                )}
+                <div className="review-row total-row">
+                  <span className="k">Total</span>
+                  <span className="v">${subtotal}</span>
+                </div>
+              </div>
+
+              <button className="reserve-btn" disabled={!shape || sizeIdx == null || !colorId || wrapId === undefined || !msgKind}>
+                Reserve this cake <Arrow size={16}/>
+              </button>
+            </div>
+          </section>
+        </div>
+
+        {/* === STAGE COLUMN ============================================== */}
+        <aside className="stage-col">
+          <span className="stage-meta">
+            Live preview · #{String(1024 + (sizeIdx ?? 0)*7 + (shape === 'square' ? 3 : 0)).padStart(5,'0')}
+          </span>
+          <span className="stage-meta-right">
+            {previewShape === 'round' ? 'Cylinder' : 'Cube'} · {previewInch}″{wrap?.id ? ` · ${wrap.name} wrap` : ''}
+          </span>
+
+          <div className="stage-inner">
+            <div className="stage-cake">
+              <CakePreview
+                shape={previewShape}
+                sizeInch={previewInch}
+                color={previewColor}
+                message={previewMsg}
+                hasMessage={previewHasMsg}
+                messageMode={previewMsgMode}
+                messageFont={previewMsgFont}
+                pattern={previewPattern}
+                allow3D={activeStep === 5}
+              />
+            </div>
+          </div>
+
+          <div className="step-tracker">
+            {STEPS.map((s, i) => {
+              const cls = i < activeStep ? 'done' : i === activeStep ? 'active' : '';
+              return <span key={s.id} className={`seg ${cls}`}><span className="fill"/></span>;
+            })}
+            <span className="label">
+              {activeStep < 0 ? '00 / 06' : `${String(activeStep + 1).padStart(2,'0')} / 06`}
+            </span>
+          </div>
+        </aside>
+      </div>
+    </div>
+  );
+};
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

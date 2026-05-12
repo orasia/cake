@@ -1,0 +1,21 @@
+node_modules/
+.env
+.env.*
+*.log
+.DS_Store
+
+# Runtime user-uploaded photos
+uploads/*
+!uploads/.gitkeep
+
+# Cache: generated cake photos. Don't bake the entire cache into git;
+# they regenerate on demand. Keep a few representative samples though
+# (override the ignore for a small "seed" set if you want).
+cache/cakes/*.png
+!cache/cakes/round-blush-confetti.png
+!cache/cakes/round-noir-gold-leaf.png
+!cache/cakes/round-blush-floral.png
+!cache/cakes/round-navy-stripes.png
+!cache/cakes/round-sage-polka.png
+!cache/cakes/round-peach-mediterranean.png
+!cache/cakes/square-blush-confetti.png

@@ -1,0 +1,34 @@
+# Render Blueprint — deploys the Magic Taste cake configurator.
+#
+# To use: connect your GitHub repo to Render and select "Blueprint".
+# Render reads this file and creates the service automatically.
+#
+# Pricing notes:
+#   - `plan: free` works but the service spins down after ~15 min idle
+#     (cold-start ~30s on next request), and has no persistent disk
+#     (cache rebuilds on every cold start, costing extra Gemini calls).
+#   - Upgrade to `plan: starter` ($7/mo) for always-on + a persistent
+#     disk so the cake photo cache survives restarts.
+
+services:
+  - type: web
+    name: magic-taste
+    runtime: node
+    plan: free               # change to "starter" for always-on + persistent disk
+    region: oregon           # pick the closest to your customers
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: GEMINI_KEY
+        sync: false           # set this in the Render dashboard, not in git
+      - key: NODE_ENV
+        value: production
+    healthCheckPath: /api/cake-cache
+
+    # Persistent disk for the cache. REQUIRES a paid plan (`starter`+).
+    # Uncomment when you upgrade:
+    #
+    # disk:
+    #   name: cake-cache
+    #   mountPath: /app/cache
+    #   sizeGB: 1

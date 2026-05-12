@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 120" role="img" aria-label="Magic Taste">
+  <defs>
+    
+  </defs>
+  <text x="20" y="26" class="eye">CAKE · STUDIO · EST. 2025</text>
+  <text x="20" y="90" class="wm">Magic</text>
+  <text x="190" y="90" class="wm-it">taste.</text>
+  <line x1="20" y1="106" x2="420" y2="106" stroke="#1A120B" stroke-width="0.75"></line>
+  <circle cx="20" cy="106" r="2" fill="#E3412A"></circle>
+  <circle cx="420" cy="106" r="2" fill="#1A120B"></circle>
+</svg>
