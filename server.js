@@ -19,13 +19,23 @@ import { execSync } from 'node:child_process';
 const __dirname  = path.dirname(fileURLToPath(import.meta.url));
 const PORT       = Number(process.env.PORT || 4173);
 const HOST       = process.env.HOST || '0.0.0.0';
-const CACHE_DIR  = path.join(__dirname, 'cache', 'cakes');
+const BUNDLED_SEEDS = path.join(__dirname, 'cache', 'cakes');
+const CACHE_DIR  = process.env.CACHE_DIR || BUNDLED_SEEDS;
 const PATTERN_DIR = path.join(__dirname, 'assets', 'patterns-png');
 const GEMINI_KEY = process.env.GEMINI_KEY || '';
 const GEMINI_URL = (key) =>
   `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${key}`;
 
 fs.mkdirSync(CACHE_DIR, { recursive: true });
+
+// Seed an empty cache dir (e.g. a freshly-mounted fly volume) from the
+// bundled defaults so users see real cakes on first paint.
+if (CACHE_DIR !== BUNDLED_SEEDS && fs.existsSync(BUNDLED_SEEDS)) {
+  for (const f of fs.readdirSync(BUNDLED_SEEDS)) {
+    const dest = path.join(CACHE_DIR, f);
+    if (!fs.existsSync(dest)) fs.copyFileSync(path.join(BUNDLED_SEEDS, f), dest);
+  }
+}
 
 const COLOR_NAMES = {
   ivory:  'ivory cream',
@@ -157,6 +167,8 @@ const callGemini = ({ prompt, patternPngPath }) => new Promise((resolve, reject)
 const app = express();
 app.use(express.static(__dirname, { extensions: ['html'] }));
 app.use('/cache/cakes', express.static(CACHE_DIR, { maxAge: '7d' }));
+
+app.get('/healthz', (req, res) => res.status(200).type('text/plain').send('ok'));
 
 // Owner-only listing of what's currently cached.
 app.get('/api/cake-cache', (req, res) => {

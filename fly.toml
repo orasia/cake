@@ -1,0 +1,42 @@
+# Fly.io app config — Magic Taste cake configurator.
+#
+# First-time setup (run once):
+#   fly launch --copy-config --no-deploy        # creates app, accepts this file
+#   fly volumes create cake_cache --region syd --size 1
+#   fly secrets set GEMINI_KEY=<your-gemini-key>
+#   fly deploy
+#
+# App name `magic-taste` is a placeholder — `fly launch` will rename if taken.
+
+app = "magic-taste"
+primary_region = "syd"
+
+[build]
+
+[env]
+  NODE_ENV = "production"
+  PORT = "8080"
+  CACHE_DIR = "/data/cakes"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/healthz"
+
+[[mounts]]
+  source = "cake_cache"
+  destination = "/data"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

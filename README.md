@@ -8,7 +8,7 @@ Photoreal cake previews generated on demand by Gemini and cached.
 ```bash
 npm install
 GEMINI_KEY=<your-key> npm start
-# open http://127.0.0.1:4173/Cake Order.html
+# open http://127.0.0.1:4173/
 ```
 
 Get a free Gemini key at https://aistudio.google.com/apikey.
@@ -17,7 +17,7 @@ Get a free Gemini key at https://aistudio.google.com/apikey.
 
 ```
 .
-├── Cake Order.html        # the page (entry point)
+├── index.html             # the page (entry point)
 ├── cake-preview.jsx       # React cake-preview component (Babel-transpiled in browser)
 ├── colors_and_type.css    # design tokens
 ├── server.js              # Express server + Gemini integration

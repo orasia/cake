@@ -1,0 +1,13 @@
+node_modules
+.git
+.gitignore
+.env
+.env.*
+*.log
+uploads
+screenshots
+render.yaml
+README.md
+.claude
+.vscode
+.idea

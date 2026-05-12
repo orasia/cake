@@ -1,0 +1,41 @@
+name: Fly Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: fly-deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to Fly.io
+    runs-on: ubuntu-latest
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      FLY_APP: magic-taste
+      FLY_REGION: syd
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Ensure app exists
+        run: flyctl apps create "$FLY_APP" --org personal || true
+
+      - name: Ensure volume exists
+        run: |
+          existing=$(flyctl volumes list -a "$FLY_APP" --json 2>/dev/null | jq -r '.[] | select(.name=="cake_cache") | .id' | head -1)
+          if [ -z "$existing" ]; then
+            flyctl volumes create cake_cache --region "$FLY_REGION" --size 1 --yes -a "$FLY_APP"
+          else
+            echo "Volume cake_cache already exists ($existing)"
+          fi
+
+      - name: Stage GEMINI_KEY secret
+        run: flyctl secrets set --stage GEMINI_KEY="${{ secrets.GEMINI_KEY }}" -a "$FLY_APP"
+
+      - name: Deploy
+        run: flyctl deploy --remote-only -a "$FLY_APP"
